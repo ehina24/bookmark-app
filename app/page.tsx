@@ -1,25 +1,50 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
+import {getBookmarks, addBookmarkAction, deleteBookmarkAction} from "./actions";
+
+type Bookmark = {
+  id:string;
+  url:string;
+  title:string;
+};
 
 export default function Home() {
   const [url,setUrl] = useState("");
-  const [bookmarks,setBookmarks] = useState<{id:string;url:string}[]>([]);
+  const [bookmarks,setBookmarks] = useState<Bookmark[]>([]);
+  const [loading,setLoading] = useState(false);
+
+  //初回読み込み時にDBからデータを取り出す
+  const loadBookmarks = async() => {
+    const data = await getBookmarks();
+    setBookmarks(data);
+  };
+
+  useEffect(() => {
+    loadBookmarks();
+  },[]);
+
   //ブックマーク追加
-  const addBookmark = () => {
+  const addBookmark = async () => {
     if(!url) return;
+
     let formattedUrl = url;
     if(!url.startsWith("http://") && !url.startsWith("https://")){
         formattedUrl = `https://${url}`;
     }
-    const newId = String(Date.now());
-    setBookmarks([...bookmarks,{id:newId,url:formattedUrl}]);
+
+    setLoading(true);
+    await addBookmarkAction(formattedUrl);
+    await loadBookmarks();
     setUrl("");
+    setLoading(false);
   };
+
   //ブックマーク削除
-  const deleteBookmark = (idToDelete:string) => {
-    setBookmarks(bookmarks.filter((bookmark) => bookmark.id !== idToDelete));
+  const deleteBookmark = async (idToDelete:string) => {
+    setBookmarks((prev) => prev.filter((b) => b.id !== idToDelete));
+    await deleteBookmarkAction(idToDelete);
   };
 
   return (
@@ -37,7 +62,9 @@ export default function Home() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="flex-1"/>
-        <Button type="submit">追加</Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? "追加中..." : "追加"}
+        </Button>
       </form>
 
       <div className="mt-10 space-y-4">
